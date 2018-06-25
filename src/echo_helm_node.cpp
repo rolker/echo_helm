@@ -127,7 +127,7 @@ void sendLocalPose(const ros::TimerEvent event)
         {
             ts.header.stamp = desired_heading_time;
             ts.header.frame_id = "base_link";
-            ts.twist.linear.x - desired_speed;
+            ts.twist.linear.x = desired_speed;
             float delta_heading = desired_heading - last_boat_heading;
             while (delta_heading > 180.0)
                 delta_heading -= 360.0;
