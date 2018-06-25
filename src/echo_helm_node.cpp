@@ -133,12 +133,12 @@ void sendLocalPose(const ros::TimerEvent event)
                 delta_heading -= 360.0;
             while (delta_heading < -180.0)
                 delta_heading += 360.0;
-            std::cerr << "delta_heading: " << delta_heading << std::endl;
+            //std::cerr << "delta_heading: " << delta_heading << std::endl;
             ts.twist.angular.z = -gz4d::Radians(delta_heading);
         }
         else
         {
-            std::cerr << "desired times out of range" << std::endl;
+            //std::cerr << "desired times out of range" << std::endl;
         }
     }
     else
