@@ -6,9 +6,14 @@
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
 #include "std_msgs/Float32.h"
+#include "std_msgs/Float64.h"
 #include "geometry_msgs/TwistStamped.h"
 #include "geographic_msgs/GeoPointStamped.h"
+#include "sensor_msgs/NavSatFix.h"
 #include "marine_msgs/NavEulerStamped.h"
+#include <mavros_msgs/CommandBool.h>
+#include <mavros_msgs/SetMode.h>
+#include <mavros_msgs/State.h>
 #include "project11/mutex_protected_bag_writer.h"
 #include <regex>
 #include "boost/date_time/posix_time/posix_time.hpp"
@@ -16,6 +21,7 @@
 ros::Publisher position_pub;
 ros::Publisher heading_pub;
 ros::Publisher speed_pub;
+ros::Publisher local_pos_pub;
 
 ros::ServiceClient arm_service;
 ros::ServiceClient mode_service;
@@ -45,6 +51,33 @@ void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
     last_time = msg->header.stamp;
 }
 
+void globalPositionCallback(const sensor_msgs::NavSatFix::ConstPtr& msg)
+{
+    geographic_msgs::GeoPointStamped gps;
+    gps.header = msg->header;
+    gps.position.latitude = msg->latitude;
+    gps.position.longitude = msg->longitude;
+    gps.position.altitude = msg->altitude;
+    position_pub.publish(gps);
+    log_bag.write("/position",ros::Time::now(),gps);
+}
+
+void headingCallback(const std_msgs::Float64::ConstPtr& msg)
+{
+    last_boat_heading = msg->data;
+    marine_msgs::NavEulerStamped nes;
+    //nes.header = msg->header;
+    nes.orientation.heading = msg->data*180.0/M_PI;
+    heading_pub.publish(nes);
+    log_bag.write("/heading",ros::Time::now(),nes);
+}
+
+void velocityCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
+{
+    speed_pub.publish(msg);
+    log_bag.write("/sog",ros::Time::now(),msg);
+}
+
 void desiredSpeedCallback(const geometry_msgs::TwistStamped::ConstPtr& inmsg)
 {
     desired_speed = inmsg->twist.linear.x;
@@ -57,8 +90,9 @@ void desiredHeadingCallback(const marine_msgs::NavEulerStamped::ConstPtr& inmsg)
     desired_heading_time = inmsg->header.stamp;
 }
 
-void sendHeadingHold(const ros::TimerEvent event)
+void sendLocalPose(const ros::TimerEvent event)
 {
+    
     bool doDesired = true;
     if (!last_time.isZero())
     {
@@ -76,6 +110,7 @@ void sendHeadingHold(const ros::TimerEvent event)
     heading = fmod(heading,M_PI*2.0);
     if(heading < 0.0)
         heading += M_PI*2.0;
+
     
     if(doDesired)
     {
@@ -97,10 +132,26 @@ void activeCallback(const std_msgs::Bool::ConstPtr& inmsg)
 {
     if(inmsg->data)
     {
-	ros::ServiceClient arm_service = n.serviceClient<
+        mavros_msgs::CommandBoolRequest req;
+        req.value = false;
+        mavros_msgs::CommandBoolResponse resp;
+        arm_service.call(req,resp);
+        
+        mavros_msgs::SetModeRequest sm_req;
+        sm_req.base_mode = 4;
+        sm_req.custom_mode = "GUIDED";
+        mavros_msgs::SetModeResponse sm_resp;
+        mode_service.call(sm_req,sm_resp);
+
+        req.value = true;
+        arm_service.call(req,resp);
     }
     else
     {
+        mavros_msgs::CommandBoolRequest req;
+        req.value = false;
+        mavros_msgs::CommandBoolResponse resp;
+        arm_service.call(req,resp);
     }
 }
 
@@ -120,14 +171,23 @@ int main(int argc, char **argv)
     std::string log_filename = "nodes/echo_helm-"+iso_now+".bag";
     log_bag.open(log_filename, rosbag::bagmode::Write);
 
-    
+    heading_pub = n.advertise<marine_msgs::NavEulerStamped>("/heading",1);
+    position_pub = n.advertise<geographic_msgs::GeoPointStamped>("/position",1);
+    speed_pub = n.advertise<geometry_msgs::TwistStamped>("/sog",1);
+    local_pos_pub = n.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_position/local", 10);
 
-    ros::Subscriber asv_helm_sub = n.subscribe("/cmd_vel",5,twistCallback);
-    ros::Subscriber activesub = n.subscribe("/active",10,activeCallback);
+    ros::Subscriber echo_helm_sub = n.subscribe("/cmd_vel",5,twistCallback);
+    ros::Subscriber active_sub = n.subscribe("/active",10,activeCallback);
     ros::Subscriber dspeed_sub = n.subscribe("/moos/desired_speed",10,desiredSpeedCallback);
     ros::Subscriber dheading_sub = n.subscribe("/moos/desired_heading",10,desiredHeadingCallback);
+    ros::Subscriber position_sub = n.subscribe("/mavros/global_position/global",10,globalPositionCallback);
+    ros::Subscriber speed_sub = n.subscribe("/mavros/global_position/raw/gps_vel",10,velocityCallback);
+    ros::Subscriber heading_sub = n.subscribe("/mavros/global_position/compass_hdg",10,headingCallback);
     
-    ros::Timer timer = n.createTimer(ros::Duration(0.1),sendHeadingHold);
+    arm_service = n.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
+    mode_service = n.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
+    
+    ros::Timer timer = n.createTimer(ros::Duration(0.1),sendLocalPose);
     
     ros::spin();
     
