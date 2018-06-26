@@ -22,6 +22,7 @@
 
 ros::Publisher position_pub;
 ros::Publisher heading_pub;
+ros::Publisher magnetic_heading_pub;
 ros::Publisher speed_pub;
 ros::Publisher local_pos_pub;
 
@@ -33,6 +34,7 @@ double heading;
 double rudder;
 double throttle;
 ros::Time last_time;
+double magnetic_declination;
 
 double last_boat_heading;
 
@@ -69,13 +71,16 @@ void globalPositionCallback(const sensor_msgs::NavSatFix::ConstPtr& msg)
 
 void headingCallback(const std_msgs::Float64::ConstPtr& msg)
 {
-    last_boat_heading = msg->data;
+    last_boat_heading = msg->data+magnetic_declination;
     marine_msgs::NavEulerStamped nes;
     nes.header.stamp = ros::Time::now();
     //nes.header = msg->header;
-    nes.orientation.heading = msg->data;//*180.0/M_PI;
+    nes.orientation.heading = msg->data+magnetic_declination;//*180.0/M_PI;
     heading_pub.publish(nes);
     log_bag.write("/heading",ros::Time::now(),nes);
+    nes.orientation.heading = msg->data;
+    magnetic_heading_pub.publish(nes);
+    log_bag.write("/magnetic_heading",ros::Time::now(),nes);
 }
 
 void velocityCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
@@ -94,6 +99,11 @@ void desiredHeadingCallback(const marine_msgs::NavEulerStamped::ConstPtr& inmsg)
 {
     desired_heading = inmsg->orientation.heading;
     desired_heading_time = inmsg->header.stamp;
+}
+
+void magneticDeclinationCallback(const std_msgs::Float32::ConstPtr& inmsg)
+{
+    magnetic_declination = inmsg->data;
 }
 
 void sendLocalPose(const ros::TimerEvent event)
@@ -193,6 +203,7 @@ int main(int argc, char **argv)
     throttle = 0.0;
     rudder = 0.0;
     last_boat_heading = 0.0;
+    magnetic_declination = 0.0;
     
     ros::init(argc, argv, "echo_helm");
     ros::NodeHandle n;
@@ -203,6 +214,7 @@ int main(int argc, char **argv)
     log_bag.open(log_filename, rosbag::bagmode::Write);
 
     heading_pub = n.advertise<marine_msgs::NavEulerStamped>("/heading",1);
+    magnetic_heading_pub = n.advertise<marine_msgs::NavEulerStamped>("/magnetic_heading",1);
     position_pub = n.advertise<geographic_msgs::GeoPointStamped>("/position",1);
     speed_pub = n.advertise<geometry_msgs::TwistStamped>("/sog",1);
     local_pos_pub = n.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 10);
@@ -214,6 +226,7 @@ int main(int argc, char **argv)
     ros::Subscriber position_sub = n.subscribe("/mavros/global_position/raw/fix",10,globalPositionCallback);
     ros::Subscriber speed_sub = n.subscribe("/mavros/global_position/raw/gps_vel",10,velocityCallback);
     ros::Subscriber heading_sub = n.subscribe("/mavros/global_position/compass_hdg",10,headingCallback);
+    ros::Subscriber magnetic_declination_sub = n.subscribe("/magnetic_declination",10,magneticDeclinationCallback);
     
     arm_service = n.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
     mode_service = n.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
