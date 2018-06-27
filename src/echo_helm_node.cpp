@@ -7,10 +7,12 @@
 #include "std_msgs/Bool.h"
 #include "std_msgs/Float32.h"
 #include "std_msgs/Float64.h"
+#include "std_msgs/String.h"
 #include "geometry_msgs/TwistStamped.h"
 #include "geographic_msgs/GeoPointStamped.h"
 #include "sensor_msgs/NavSatFix.h"
 #include "marine_msgs/NavEulerStamped.h"
+#include "marine_msgs/Heartbeat.h"
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/SetMavFrame.h>
@@ -25,6 +27,7 @@ ros::Publisher heading_pub;
 ros::Publisher magnetic_heading_pub;
 ros::Publisher speed_pub;
 ros::Publisher local_pos_pub;
+ros::Publisher heartbeat_pub;
 
 ros::ServiceClient arm_service;
 ros::ServiceClient mode_service;
@@ -42,6 +45,10 @@ double desired_speed;
 ros::Time desired_speed_time;
 double desired_heading;
 ros::Time desired_heading_time;
+
+
+bool active;
+std::string helm_mode;
 
 
 MutexProtectedBagWriter log_bag;
@@ -166,6 +173,7 @@ void sendLocalPose(const ros::TimerEvent event)
 
 void activeCallback(const std_msgs::Bool::ConstPtr& inmsg)
 {
+    active = inmsg->data;
     if(inmsg->data)
     {
         mavros_msgs::CommandBoolRequest req;
@@ -196,6 +204,52 @@ void activeCallback(const std_msgs::Bool::ConstPtr& inmsg)
     }
 }
 
+void helmModeCallback(const std_msgs::String::ConstPtr& inmsg)
+{
+    helm_mode = inmsg->data;
+}
+
+std::string boolToString(bool value)
+{
+    if(value)
+        return "true";
+    return "false";
+}
+
+void stateCallback(const mavros_msgs::State::ConstPtr& inmsg)
+{
+    marine_msgs::Heartbeat hb;
+    hb.header = inmsg->header;
+
+    marine_msgs::KeyValue kv;
+
+    kv.key = "active";
+    kv.value = boolToString(active);
+    hb.values.push_back(kv);
+    
+    kv.key = "helm_mode";
+    kv.value = helm_mode;
+    hb.values.push_back(kv);
+    
+    kv.key = "connected";
+    kv.value = boolToString(inmsg->connected);
+    hb.values.push_back(kv);
+
+    kv.key = "armed";
+    kv.value = boolToString(inmsg->armed);
+    hb.values.push_back(kv);
+
+    kv.key = "guided";
+    kv.value = boolToString(inmsg->guided);
+    hb.values.push_back(kv);
+
+    kv.key = "mode";
+    kv.value = inmsg->mode;
+    hb.values.push_back(kv);
+    
+    heartbeat_pub.publish(hb);
+    log_bag.write("/heartbeat",ros::Time::now(),hb);
+}
 
 int main(int argc, char **argv)
 {
@@ -204,6 +258,8 @@ int main(int argc, char **argv)
     rudder = 0.0;
     last_boat_heading = 0.0;
     magnetic_declination = 0.0;
+    active = false;
+    helm_mode = "unknown";
     
     ros::init(argc, argv, "echo_helm");
     ros::NodeHandle n;
@@ -218,6 +274,7 @@ int main(int argc, char **argv)
     position_pub = n.advertise<geographic_msgs::GeoPointStamped>("/position",1);
     speed_pub = n.advertise<geometry_msgs::TwistStamped>("/sog",1);
     local_pos_pub = n.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 10);
+    heartbeat_pub = n.advertise<marine_msgs::Heartbeat>("/heartbeat", 10);
 
     ros::Subscriber echo_helm_sub = n.subscribe("/cmd_vel",5,twistCallback);
     ros::Subscriber active_sub = n.subscribe("/active",10,activeCallback);
@@ -227,6 +284,9 @@ int main(int argc, char **argv)
     ros::Subscriber speed_sub = n.subscribe("/mavros/global_position/raw/gps_vel",10,velocityCallback);
     ros::Subscriber heading_sub = n.subscribe("/mavros/global_position/compass_hdg",10,headingCallback);
     ros::Subscriber magnetic_declination_sub = n.subscribe("/magnetic_declination",10,magneticDeclinationCallback);
+    ros::Subscriber helmmodesub = n.subscribe("/helm_mode",10,helmModeCallback);
+    ros::Subscriber state_sub = n.subscribe("/mavros/state",10,stateCallback);
+
     
     arm_service = n.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
     mode_service = n.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
