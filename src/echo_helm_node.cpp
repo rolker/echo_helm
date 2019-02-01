@@ -278,8 +278,8 @@ int main(int argc, char **argv)
 
     ros::Subscriber echo_helm_sub = n.subscribe("/cmd_vel",5,twistCallback);
     ros::Subscriber active_sub = n.subscribe("/active",10,activeCallback);
-    ros::Subscriber dspeed_sub = n.subscribe("/moos/desired_speed",10,desiredSpeedCallback);
-    ros::Subscriber dheading_sub = n.subscribe("/moos/desired_heading",10,desiredHeadingCallback);
+    ros::Subscriber dspeed_sub = n.subscribe("/project11/desired_speed",10,desiredSpeedCallback);
+    ros::Subscriber dheading_sub = n.subscribe("/project11/desired_heading",10,desiredHeadingCallback);
     ros::Subscriber position_sub = n.subscribe("/mavros/global_position/raw/fix",10,globalPositionCallback);
     ros::Subscriber speed_sub = n.subscribe("/mavros/global_position/raw/gps_vel",10,velocityCallback);
     ros::Subscriber heading_sub = n.subscribe("/mavros/global_position/compass_hdg",10,headingCallback);
