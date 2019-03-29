@@ -47,7 +47,6 @@ double desired_heading;
 ros::Time desired_heading_time;
 
 
-bool active;
 std::string helm_mode;
 
 
@@ -171,10 +170,9 @@ void sendLocalPose(const ros::TimerEvent event)
     local_pos_pub.publish(ts);
 }
 
-void activeCallback(const std_msgs::Bool::ConstPtr& inmsg)
+void helmModeCallback(const std_msgs::String::ConstPtr& inmsg)
 {
-    active = inmsg->data;
-    if(inmsg->data)
+    if(helm_mode == "standby" && inmsg->data != "standby")
     {
         mavros_msgs::CommandBoolRequest req;
         req.value = false;
@@ -195,17 +193,13 @@ void activeCallback(const std_msgs::Bool::ConstPtr& inmsg)
         mavros_msgs::SetMavFrameResponse smf_resp;
         frame_service.call(smf_req,smf_resp);
     }
-    else
+    if(inmsg->data == "standby")
     {
         mavros_msgs::CommandBoolRequest req;
         req.value = false;
         mavros_msgs::CommandBoolResponse resp;
         arm_service.call(req,resp);
     }
-}
-
-void helmModeCallback(const std_msgs::String::ConstPtr& inmsg)
-{
     helm_mode = inmsg->data;
 }
 
@@ -223,10 +217,6 @@ void stateCallback(const mavros_msgs::State::ConstPtr& inmsg)
 
     marine_msgs::KeyValue kv;
 
-    kv.key = "active";
-    kv.value = boolToString(active);
-    hb.values.push_back(kv);
-    
     kv.key = "helm_mode";
     kv.value = helm_mode;
     hb.values.push_back(kv);
@@ -258,8 +248,7 @@ int main(int argc, char **argv)
     rudder = 0.0;
     last_boat_heading = 0.0;
     magnetic_declination = 0.0;
-    active = false;
-    helm_mode = "unknown";
+    helm_mode = "standby";
     
     ros::init(argc, argv, "echo_helm");
     ros::NodeHandle n;
@@ -277,7 +266,6 @@ int main(int argc, char **argv)
     heartbeat_pub = n.advertise<marine_msgs::Heartbeat>("/heartbeat", 10);
 
     ros::Subscriber echo_helm_sub = n.subscribe("/cmd_vel",5,twistCallback);
-    ros::Subscriber active_sub = n.subscribe("/active",10,activeCallback);
     ros::Subscriber dspeed_sub = n.subscribe("/project11/desired_speed",10,desiredSpeedCallback);
     ros::Subscriber dheading_sub = n.subscribe("/project11/desired_heading",10,desiredHeadingCallback);
     ros::Subscriber position_sub = n.subscribe("/mavros/global_position/raw/fix",10,globalPositionCallback);
