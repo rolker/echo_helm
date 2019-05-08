@@ -17,7 +17,6 @@
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/SetMavFrame.h>
 #include <mavros_msgs/State.h>
-#include "project11/mutex_protected_bag_writer.h"
 #include "project11/gz4d_geo.h"
 #include <regex>
 #include "boost/date_time/posix_time/posix_time.hpp"
@@ -46,12 +45,7 @@ ros::Time desired_speed_time;
 double desired_heading;
 ros::Time desired_heading_time;
 
-
 std::string helm_mode;
-
-
-MutexProtectedBagWriter log_bag;
-
 
 void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
@@ -72,7 +66,6 @@ void globalPositionCallback(const sensor_msgs::NavSatFix::ConstPtr& msg)
     gps.position.longitude = msg->longitude;
     gps.position.altitude = msg->altitude;
     position_pub.publish(gps);
-    log_bag.write("/position",ros::Time::now(),gps);
 }
 
 void headingCallback(const std_msgs::Float64::ConstPtr& msg)
@@ -83,16 +76,13 @@ void headingCallback(const std_msgs::Float64::ConstPtr& msg)
     //nes.header = msg->header;
     nes.orientation.heading = msg->data+magnetic_declination;//*180.0/M_PI;
     heading_pub.publish(nes);
-    log_bag.write("/heading",ros::Time::now(),nes);
     nes.orientation.heading = msg->data;
     magnetic_heading_pub.publish(nes);
-    log_bag.write("/magnetic_heading",ros::Time::now(),nes);
 }
 
 void velocityCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
     speed_pub.publish(msg);
-    log_bag.write("/sog",ros::Time::now(),msg);
 }
 
 void desiredSpeedCallback(const geometry_msgs::TwistStamped::ConstPtr& inmsg)
@@ -165,8 +155,6 @@ void sendLocalPose(const ros::TimerEvent event)
         ts.twist.angular.z = -rudder;
     }
     //std::cerr << "ts.twist.linear.x: " << ts.twist.linear.x << "  angular.z: " << ts.twist.angular.z << std::endl; 
-    
-    log_bag.write("/mavros/setpoint_velocity/cmd_vel",ros::Time::now(),ts);
     local_pos_pub.publish(ts);
 }
 
@@ -238,7 +226,6 @@ void stateCallback(const mavros_msgs::State::ConstPtr& inmsg)
     hb.values.push_back(kv);
     
     heartbeat_pub.publish(hb);
-    log_bag.write("/heartbeat",ros::Time::now(),hb);
 }
 
 int main(int argc, char **argv)
@@ -252,11 +239,6 @@ int main(int argc, char **argv)
     
     ros::init(argc, argv, "echo_helm");
     ros::NodeHandle n;
-
-    boost::posix_time::ptime now = ros::WallTime::now().toBoost();
-    std::string iso_now = std::regex_replace(boost::posix_time::to_iso_extended_string(now),std::regex(":"),"-");
-    std::string log_filename = "nodes/echo_helm-"+iso_now+".bag";
-    log_bag.open(log_filename, rosbag::bagmode::Write);
 
     heading_pub = n.advertise<marine_msgs::NavEulerStamped>("/heading",1);
     magnetic_heading_pub = n.advertise<marine_msgs::NavEulerStamped>("/magnetic_heading",1);
@@ -283,8 +265,6 @@ int main(int argc, char **argv)
     ros::Timer timer = n.createTimer(ros::Duration(0.1),sendLocalPose);
     
     ros::spin();
-    
-    log_bag.close();
-    
+
     return 0;
 }
