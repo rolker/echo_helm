@@ -45,7 +45,7 @@ ros::Time desired_speed_time;
 double desired_heading;
 ros::Time desired_heading_time;
 
-std::string helm_mode;
+std::string piloting_mode;
 
 void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
@@ -160,7 +160,7 @@ void sendLocalPose(const ros::TimerEvent event)
 
 void helmModeCallback(const std_msgs::String::ConstPtr& inmsg)
 {
-    if(helm_mode == "standby" && inmsg->data != "standby")
+    if(piloting_mode == "standby" && inmsg->data != "standby")
     {
         mavros_msgs::CommandBoolRequest req;
         req.value = false;
@@ -188,7 +188,7 @@ void helmModeCallback(const std_msgs::String::ConstPtr& inmsg)
         mavros_msgs::CommandBoolResponse resp;
         arm_service.call(req,resp);
     }
-    helm_mode = inmsg->data;
+    piloting_mode = inmsg->data;
 }
 
 std::string boolToString(bool value)
@@ -205,8 +205,8 @@ void stateCallback(const mavros_msgs::State::ConstPtr& inmsg)
 
     marine_msgs::KeyValue kv;
 
-    kv.key = "helm_mode";
-    kv.value = helm_mode;
+    kv.key = "piloting_mode";
+    kv.value = piloting_mode;
     hb.values.push_back(kv);
     
     kv.key = "connected";
@@ -235,7 +235,7 @@ int main(int argc, char **argv)
     rudder = 0.0;
     last_boat_heading = 0.0;
     magnetic_declination = 0.0;
-    helm_mode = "standby";
+    piloting_mode = "standby";
     
     ros::init(argc, argv, "echo_helm");
     ros::NodeHandle n;
@@ -254,7 +254,7 @@ int main(int argc, char **argv)
     ros::Subscriber speed_sub = n.subscribe("/mavros/global_position/raw/gps_vel",10,velocityCallback);
     ros::Subscriber heading_sub = n.subscribe("/mavros/global_position/compass_hdg",10,headingCallback);
     ros::Subscriber magnetic_declination_sub = n.subscribe("/magnetic_declination",10,magneticDeclinationCallback);
-    ros::Subscriber helmmodesub = n.subscribe("/helm_mode",10,helmModeCallback);
+    ros::Subscriber helmmodesub = n.subscribe("/project11/piloting_mode",10,helmModeCallback);
     ros::Subscriber state_sub = n.subscribe("/mavros/state",10,stateCallback);
 
     
