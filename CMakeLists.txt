@@ -20,6 +20,8 @@ include_directories(
 
 add_executable(${PROJECT_NAME}_node src/echo_helm_node.cpp)
 
+add_dependencies(${PROJECT_NAME}_node ${catkin_EXPORTED_TARGETS})
+
 target_link_libraries(${PROJECT_NAME}_node
    ${catkin_LIBRARIES}
 )
