@@ -8,23 +8,17 @@ find_package(catkin REQUIRED COMPONENTS
   mavros
   roscpp
   marine_msgs
-  project11
 )
 
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES echo_helm
-#  CATKIN_DEPENDS geometry_msgs mavros roscpp
-#  DEPENDS system_lib
+   CATKIN_DEPENDS geometry_msgs mavros roscpp marine_msgs
 )
 
 include_directories(
-# include
   ${catkin_INCLUDE_DIRS}
 )
 
 add_executable(${PROJECT_NAME}_node src/echo_helm_node.cpp)
-add_dependencies(${PROJECT_NAME}_node marine_msgs_gencpp)
 
 target_link_libraries(${PROJECT_NAME}_node
    ${catkin_LIBRARIES}
