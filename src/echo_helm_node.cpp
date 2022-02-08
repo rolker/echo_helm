@@ -106,10 +106,10 @@ int main(int argc, char **argv)
     status_pub = n.advertise<marine_msgs::Heartbeat>("project11/status/helm", 10);
     
     cmd_vel_pub = n.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 10);
-    ros::Subscriber cmd_vel_sub = n.subscribe("control/cmd_vel", 10, cmdVelCallback);
+    ros::Subscriber cmd_vel_sub = n.subscribe("project11/control/cmd_vel", 10, cmdVelCallback);
 
     standby = true;
-    ros::Subscriber stanby_sub = n.subscribe("piloting_mode/standby/active", 5, standbyCallback);
+    ros::Subscriber stanby_sub = n.subscribe("project11/piloting_mode/standby/active", 5, standbyCallback);
     
     ros::Subscriber state_sub = n.subscribe("mavros/state",10,stateCallback);
 
