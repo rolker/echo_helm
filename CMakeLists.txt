@@ -7,11 +7,11 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   mavros
   roscpp
-  marine_msgs
+  project11_msgs
 )
 
 catkin_package(
-   CATKIN_DEPENDS geometry_msgs mavros roscpp marine_msgs
+   CATKIN_DEPENDS geometry_msgs mavros roscpp project11_msgs
 )
 
 include_directories(

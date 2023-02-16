@@ -7,7 +7,7 @@
 
 #include "std_msgs/Bool.h"
 #include "geometry_msgs/TwistStamped.h"
-#include "marine_msgs/Heartbeat.h"
+#include "project11_msgs/Heartbeat.h"
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/SetMavFrame.h>
@@ -70,10 +70,10 @@ std::string boolToString(bool value)
 
 void stateCallback(const mavros_msgs::State::ConstPtr& inmsg)
 {
-    marine_msgs::Heartbeat hb;
+    project11_msgs::Heartbeat hb;
     hb.header = inmsg->header;
 
-    marine_msgs::KeyValue kv;
+    project11_msgs::KeyValue kv;
 
     kv.key = "project11_standby";
     kv.value = boolToString(standby);
@@ -103,7 +103,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "echo_helm");
     ros::NodeHandle n;
 
-    status_pub = n.advertise<marine_msgs::Heartbeat>("project11/status/helm", 10);
+    status_pub = n.advertise<project11_msgs::Heartbeat>("project11/status/helm", 10);
     
     cmd_vel_pub = n.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 10);
     ros::Subscriber cmd_vel_sub = n.subscribe("project11/control/cmd_vel", 10, cmdVelCallback);
