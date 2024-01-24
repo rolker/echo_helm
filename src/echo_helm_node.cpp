@@ -12,34 +12,47 @@
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/SetMavFrame.h>
 #include <mavros_msgs/State.h>
+#include <mavros_msgs/StreamRate.h>
+#include <mavros_msgs/ManualControl.h>
 
 ros::Publisher status_pub;
 ros::Publisher cmd_vel_pub;
+ros::Publisher manual_control_pub;
 
 ros::ServiceClient arm_service;
 ros::ServiceClient mode_service;
 ros::ServiceClient frame_service;
+ros::ServiceClient stream_rate_service;
 
 bool standby;
 
 void cmdVelCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
   if(!standby)
+  {
     cmd_vel_pub.publish(msg);
+  }
 }
 
 void standbyCallback(const std_msgs::Bool::ConstPtr& msg)
 {
+  // from standby to active
   if(standby && !msg->data)
   {
+    mavros_msgs::StreamRate stream_rate;
+    stream_rate.request.message_rate = 5;
+    stream_rate.request.on_off = 1;
+    stream_rate_service.call(stream_rate);
+
     mavros_msgs::CommandBoolRequest req;
     req.value = false;
     mavros_msgs::CommandBoolResponse resp;
     arm_service.call(req,resp);
     
     mavros_msgs::SetModeRequest sm_req;
-    sm_req.base_mode = 4;
+    //sm_req.base_mode = 4;
     sm_req.custom_mode = "GUIDED";
+    //sm_req.custom_mode = "MANUAL";
     mavros_msgs::SetModeResponse sm_resp;
     mode_service.call(sm_req,sm_resp);
     
@@ -52,6 +65,7 @@ void standbyCallback(const std_msgs::Bool::ConstPtr& msg)
     frame_service.call(smf_req,smf_resp);
   }
   standby = msg->data;
+  // to standby
   if(msg->data)
   {
     mavros_msgs::CommandBoolRequest req;
@@ -106,6 +120,9 @@ int main(int argc, char **argv)
     status_pub = n.advertise<project11_msgs::Heartbeat>("project11/status/helm", 10);
     
     cmd_vel_pub = n.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 10);
+
+    manual_control_pub = n.advertise<mavros_msgs::ManualControl>("mavros/manual_control/send", 1);
+
     ros::Subscriber cmd_vel_sub = n.subscribe("project11/control/cmd_vel", 10, cmdVelCallback);
 
     standby = true;
@@ -116,6 +133,7 @@ int main(int argc, char **argv)
     arm_service = n.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
     mode_service = n.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
     frame_service = n.serviceClient<mavros_msgs::SetMavFrame>("mavros/setpoint_velocity/mav_frame");
+    stream_rate_service = n.serviceClient<mavros_msgs::StreamRate>("mavros/set_stream_rate");
     
     ros::spin();
 
