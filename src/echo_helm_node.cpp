@@ -40,7 +40,7 @@ void standbyCallback(const std_msgs::Bool::ConstPtr& msg)
   if(standby && !msg->data)
   {
     mavros_msgs::StreamRate stream_rate;
-    stream_rate.request.message_rate = 5;
+    stream_rate.request.message_rate = 10;
     stream_rate.request.on_off = 1;
     stream_rate_service.call(stream_rate);
 
@@ -50,9 +50,7 @@ void standbyCallback(const std_msgs::Bool::ConstPtr& msg)
     arm_service.call(req,resp);
     
     mavros_msgs::SetModeRequest sm_req;
-    //sm_req.base_mode = 4;
     sm_req.custom_mode = "GUIDED";
-    //sm_req.custom_mode = "MANUAL";
     mavros_msgs::SetModeResponse sm_resp;
     mode_service.call(sm_req,sm_resp);
     
@@ -72,6 +70,11 @@ void standbyCallback(const std_msgs::Bool::ConstPtr& msg)
     req.value = false;
     mavros_msgs::CommandBoolResponse resp;
     arm_service.call(req,resp);
+
+    mavros_msgs::SetModeRequest sm_req;
+    sm_req.custom_mode = "MANUAL";
+    mavros_msgs::SetModeResponse sm_resp;
+    mode_service.call(sm_req,sm_resp);
   }
 }
 
